@@ -8,7 +8,7 @@ import time
 
 class Node:
     def __init__(self, x, y, nodeMatrix, weight):
-        self.nodeMatrix: NodeMatrix = nodeMatrix
+        self.nodeMatrix: NodeMap = nodeMatrix
         self.x = x
         self.y = y
         self.weight = weight
@@ -67,23 +67,31 @@ class Node:
         return "{x:" + str(self.x) + ", y:" + str(self.y) + ", pathCost:" + str(self.calculatePathCost()) + ", heuristic:" + str(self.getHeuristicCost()) + "}"
 
 
-class NodeMatrix:
-    def __init__(self, map: Map_Obj):
+class NodeMap:
+    def __init__(self, mapObj: Map_Obj):
         nodeMatrix = []
-        self.width = map.get_maps()[0].shape[1]
-        self.height = map.get_maps()[0].shape[0]
+        self.mapObj = mapObj
+        self.width = mapObj.get_maps()[0].shape[1]
+        self.height = mapObj.get_maps()[0].shape[0]
         for y in range(self.height):
             nodeMatrixRow = []
             for x in range(self.width):
                 nodeMatrixRow.append(
-                    Node(x, y, self, map.get_cell_value([y, x])))
+                    Node(x, y, self, mapObj.get_cell_value([y, x])))
             nodeMatrix.append(nodeMatrixRow)
         self.nodeMatrix = nodeMatrix
 
         self.start = self.getNode(
-            map.get_start_pos()[1], map.get_start_pos()[0])
-        self.goal = self.getNode(map.get_goal_pos()[1], map.get_goal_pos()[0])
+            mapObj.get_start_pos()[1], mapObj.get_start_pos()[0])
+        self.goal = self.getNode(mapObj.get_goal_pos()[
+                                 1], mapObj.get_goal_pos()[0])
         self.start.setEstimatedCost(0)
+
+    def updateGoalPositionWithTick(self):
+        self.mapObj.tick()
+        self.goal = self.getNode(self.mapObj.get_goal_pos()[
+                                 1], self.mapObj.get_goal_pos()[0])
+        return None
 
     def getNode(self, x, y):
         if self.width <= x or x < 0:
@@ -120,9 +128,9 @@ class NodeMatrix:
 
 
 # Returns node path from start to goal
-def AStarSearch(nodeMatrix: NodeMatrix):
-    start: Node = nodeMatrix.getStart()
-    goal: Node = nodeMatrix.getGoal()
+def AStarSearch(nodeMap: NodeMap, mapObj: Map_Obj):
+    start: Node = nodeMap.getStart()
+    goal: Node = nodeMap.getGoal()
     if start == goal:
         print("Start is equal to goal")
         return []
@@ -133,9 +141,14 @@ def AStarSearch(nodeMatrix: NodeMatrix):
         reached: list[Node] = []
 
         frontier.append(start)
-
+        prevGoal: Node = None
         while goal not in reached and len(frontier) > 0:
             chosenNode = frontier[0]
+            # Update all estimated costs if goal moved
+            if goal != prevGoal:
+                for n in frontier:
+                    n.setEstimatedCost(
+                        n.getHeuristicCost() + n.calculatePathCost())
             # get lowest total cost node and explore it
             for node in frontier:
                 if node.getEstimatedCost() < chosenNode.getEstimatedCost():
@@ -167,23 +180,29 @@ def AStarSearch(nodeMatrix: NodeMatrix):
             frontier.remove(chosenNode)
             reached.append(chosenNode)
 
+            nodeMap.updateGoalPositionWithTick()
+
+            prevGoal = goal
+            goal = nodeMap.getGoal()
+
         if len(frontier) == 0:
             print("frontier empty")
-            for x in range(nodeMatrix.width):
-                for y in range(nodeMatrix.height):
-                    print(nodeMatrix.getNode(x, y))
+            for x in range(nodeMap.width):
+                for y in range(nodeMap.height):
+                    print(nodeMap.getNode(x, y))
         print("Goal Path Cost: {}".format(goal.getPathCost()))
-        return (nodeMatrix.getPath(goal), reached)
+        return (nodeMap.getPath(goal), reached)
 
 
-def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
-    nodeMap = nodeMatrix.getMatrix()
+def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Map_Obj):
+    nmap = NodeMap(mapObj)
+    nodeMatrix = nmap.getMatrix()
     # Settings
     fps = 60
     fpsClock = pygame.time.Clock()
 
-    length = 20*len(nodeMap[0])
-    width = 20*len(nodeMap)
+    length = 20*len(nodeMatrix[0])
+    width = 20*len(nodeMatrix)
     grid_node_width = 20
     grid_node_height = 20
     gridDisplay = pygame.display.set_mode((length, width))
@@ -194,27 +213,38 @@ def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
         pygame.draw.rect(gridDisplay, color,
                          (x, y, grid_node_width, grid_node_height))
 
-    # Draw Map
-    for y in range(len(nodeMap)):
-        for x in range(len(nodeMap[0])):
-            node: Node = nodeMatrix.getNode(x, y)
-            # Walls
-            if node.getWeight() == math.inf:
-                createSquare(x*grid_node_width, y *
-                             grid_node_height, (100, 0, 0))
-            # Walkable squares
-            elif node.getWeight() >= 0:
-                weight = node.getWeight()
-                reduction = 50*weight
-                clr = 255 - reduction
-                createSquare(x*grid_node_width, y *
-                             grid_node_height, (clr, clr, clr))
+    walkedNodes: list[Node] = []
 
-    createSquare(nodeMatrix.getStart().x*grid_node_width,
-                 nodeMatrix.getStart().y*grid_node_height, (0, 0, 100))
-    createSquare(nodeMatrix.getGoal().x*grid_node_width,
-                 nodeMatrix.getGoal().y*grid_node_height, (0, 255, 0))
+    def refresh():
+        # Draw Initial Map
+        for y in range(len(nodeMatrix)):
+            for x in range(len(nodeMatrix[0])):
+                node: Node = nmap.getNode(x, y)
+                # Walls
+                if node.getWeight() == math.inf:
+                    createSquare(x*grid_node_width, y *
+                                 grid_node_height, (100, 0, 0))
+                # Walkable squares
+                elif node.getWeight() >= 0:
+                    weight = node.getWeight()
+                    reduction = 50*weight
+                    clr = 255 - reduction
+                    createSquare(x*grid_node_width, y *
+                                 grid_node_height, (clr, clr, clr))
 
+        # Draw Start
+        createSquare(nmap.getStart().x*grid_node_width,
+                     nmap.getStart().y*grid_node_height, (0, 0, 100))
+        # Draw Goal
+        createSquare(nmap.getGoal().x*grid_node_width,
+                     nmap.getGoal().y*grid_node_height, (0, 255, 0))
+
+        for node in walkedNodes:
+            createSquare(node.x*grid_node_width, node.y *
+                         grid_node_height, (0, 0, 255))
+
+    # First Draw of map
+    refresh()
     pygame.display.update()
 
     # Display  weight only for reached nodes text on grid
@@ -222,16 +252,17 @@ def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
     white = (255, 255, 255)
     green = (0, 255, 0)
     blue = (0, 0, 128)
-    # for node in reached:
-    #     x = node.x*grid_node_width
-    #     y = node.y*grid_node_height
-    #     font = pygame.font.SysFont('timesnewroman',  8)
-    #     text = font.render(str(node.getWeight()), True, (0, 0, 0), None)
-    #     textRect = text.get_rect()
-    #     textRect.x = x + grid_node_width
-    #     textRect.y = y + grid_node_height
-    #     textRect.center = (x + grid_node_width / 2, y + grid_node_height / 2)
-    #     gridDisplay.blit(text, textRect)
+
+    for node in reached:
+        x = node.x*grid_node_width
+        y = node.y*grid_node_height
+        font = pygame.font.SysFont('timesnewroman',  8)
+        text = font.render(str(node.getPathCost()), True, (0, 0, 0), None)
+        textRect = text.get_rect()
+        textRect.x = x + grid_node_width
+        textRect.y = y + grid_node_height
+        textRect.center = (x + grid_node_width / 2, y + grid_node_height / 2)
+        gridDisplay.blit(text, textRect)
 
     # Display Weights
     # flattenedNodeMatrix = np.array(nodeMap)
@@ -249,14 +280,18 @@ def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
 
     pygame.display.update()
 
-    time.sleep(2)
+    time.sleep(5)
 
     for node in reached:
         fpsClock.tick(fps)
         if node != goalPath[-1]:
             createSquare(node.x*grid_node_width, node.y *
                          grid_node_height, (0, 0, 255))
+            walkedNodes.append(node)
         pygame.display.update()
+        mapObj.tick()
+        nmap = NodeMap(mapObj)
+        refresh()
 
     for node in goalPath:
         fpsClock.tick(fps)
@@ -266,26 +301,26 @@ def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
 
 
 if __name__ == "__main__":
-    # map = Map_Obj(1)
-    # nodeMatrix = NodeMatrix(map)
-    # goalPath, reached = AStarSearch(NodeMatrix(Map_Obj(1)))
-    # drawMap(nodeMatrix, goalPath, reached)
-    # time.sleep(5)
+    map = Map_Obj(1)
+    nodeMatrix = NodeMap(map)
+    goalPath, reached = AStarSearch(NodeMap(map), map)
+    drawMap(nodeMatrix, goalPath, reached, Map_Obj(1))
+    time.sleep(5)
 
-    # map = Map_Obj(2)
-    # nodeMatrix = NodeMatrix(map)
-    # goalPath, reached = AStarSearch(NodeMatrix(map))
-    # drawMap(nodeMatrix, goalPath, reached)
-    # time.sleep(5)
+    map = Map_Obj(2)
+    nodeMatrix = NodeMap(map)
+    goalPath, reached = AStarSearch(NodeMap(map), map)
+    drawMap(nodeMatrix, goalPath, reached, Map_Obj(2))
+    time.sleep(5)
 
-    # map = Map_Obj(3)
-    # nodeMatrix = NodeMatrix(map)
-    # goalPath, reached = AStarSearch(NodeMatrix(map))
-    # drawMap(nodeMatrix, goalPath, reached)
-    # time.sleep(5)
+    map = Map_Obj(3)
+    nodeMatrix = NodeMap(map)
+    goalPath, reached = AStarSearch(NodeMap(map), map)
+    drawMap(nodeMatrix, goalPath, reached, Map_Obj(3))
+    time.sleep(5)
 
-    map = Map_Obj(4)
-    nodeMatrix = NodeMatrix(map)
-    goalPath, reached = AStarSearch(NodeMatrix(map))
-    drawMap(nodeMatrix, goalPath, reached)
+    map = Map_Obj(5)
+    nodeMatrix = NodeMap(map)
+    goalPath, reached = AStarSearch(NodeMap(map), map)
+    drawMap(nodeMatrix, goalPath, reached, Map_Obj(5))
     time.sleep(3)
