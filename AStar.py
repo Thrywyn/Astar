@@ -1,3 +1,4 @@
+import copy
 from Map import *
 import pygame
 import numpy as np
@@ -58,13 +59,6 @@ class Node:
     def getPathCost(self):
         return self.pathCost
 
-    def getPath(self, path: list = []):
-        if self.parent == None:
-            return path
-        path.append(self)
-        self.parent.getPath(path)
-        return path
-
     def getEstimatedCost(self):
         return self.estimatedCost
 
@@ -94,10 +88,9 @@ class NodeMatrix:
             nodeMatrix.append(nodeMatrixRow)
         self.nodeMatrix = nodeMatrix
 
-        self.goal = Node(map.get_goal_pos()[1], map.get_goal_pos()[
-                         0], self, map.get_cell_value([map.get_goal_pos()[0], map.get_goal_pos()[1]]))
-        self.start = Node(map.get_start_pos()[1], map.get_start_pos()[
-                          0], self, map.get_cell_value([map.get_start_pos()[0], map.get_start_pos()[1]]))
+        self.start = self.getNode(
+            map.get_start_pos()[1], map.get_start_pos()[0])
+        self.goal = self.getNode(map.get_goal_pos()[1], map.get_goal_pos()[0])
         self.start.setEstimatedCost(0)
 
     def getNode(self, x, y):
@@ -125,11 +118,19 @@ class NodeMatrix:
     def heuristicCost(self, node: Node):
         return self.euclidianDistance(node, self.goal)
 
+    def getPath(self, node: Node):
+        path = []
+        path.append(node)
+        while node.parent != None:
+            path.append(node.parent)
+            node = node.parent
+        return path
+
 
 # Returns node path from start to goal
 def AStarSearch(nodeMatrix: NodeMatrix):
-    start = nodeMatrix.getStart()
-    goal = nodeMatrix.getGoal()
+    start: Node = nodeMatrix.getStart()
+    goal: Node = nodeMatrix.getGoal()
     if start == goal:
         print("Start is equal to goal")
         return []
@@ -149,9 +150,6 @@ def AStarSearch(nodeMatrix: NodeMatrix):
                     chosenNode = node
             # print("chosen node:")
             # print(chosenNode)
-
-            frontier.remove(chosenNode)
-            reached.append(chosenNode)
 
             neighbours: list[Node] = chosenNode.getNodeNeighbours()
             for n in neighbours:
@@ -173,12 +171,16 @@ def AStarSearch(nodeMatrix: NodeMatrix):
                                 n.getHeuristicCost() + n.calculatePathCost())
                         if n not in frontier:
                             frontier.append(n)
+
+            frontier.remove(chosenNode)
+            reached.append(chosenNode)
+
         if len(frontier) == 0:
             print("frontier empty")
             for x in range(nodeMatrix.width):
                 for y in range(nodeMatrix.height):
                     print(nodeMatrix.getNode(x, y))
-        return (goal.getPath(), reached)
+        return (nodeMatrix.getPath(goal), reached)
 
 
 def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
@@ -189,8 +191,8 @@ def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
 
     length = 20*len(nodeMap[0])
     width = 20*len(nodeMap)
-    grid_node_width = 15
-    grid_node_height = 15
+    grid_node_width = 20
+    grid_node_height = 20
     gridDisplay = pygame.display.set_mode((length, width))
 
     # Settings End
@@ -218,7 +220,7 @@ def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
     pygame.display.update()
 
     # for node in reached:
-    # createSquare(node.x*grid_node_width, node.y*grid_node_height, (0, 0, np.clip(int(node.getHeuristicCost()*20),0,255)))
+    # createSquare(node.x*grid_node_width, node.y*grid_node_height, (0, 0, np.clip(int(node.getHeuristicCost()*10),0,255)))
 
     pygame.font.init()
     white = (255, 255, 255)
@@ -237,28 +239,27 @@ def drawMap(nodeMatrix: NodeMatrix, goalPath, reached: list[Node]):
 
     pygame.display.update()
 
-    # for node in reached:
-    # pygame.event.get()
-    # fpsClock.tick(fps)
+    time.sleep(2)
+
+    for node in reached:
+        pygame.event.get()
+        fpsClock.tick(fps)
+        createSquare(node.x*grid_node_width, node.y *
+                     grid_node_height, (100, 100, 100))
+        pygame.display.update()
+
+    for node in goalPath:
+        pygame.event.get()
+        fpsClock.tick(fps)
+        createSquare(node.x*grid_node_width, node.y *
+                     grid_node_height, (0, 100, 0))
+        pygame.display.update()
 
 
 if __name__ == "__main__":
     nodeMatrix = NodeMatrix(map)
 
-    goalPath, explored = AStarSearch(NodeMatrix(Map_Obj(1)))
-    drawMap(nodeMatrix, goalPath, explored)
+    goalPath, reached = AStarSearch(NodeMatrix(Map_Obj(1)))
+    drawMap(nodeMatrix, goalPath, reached)
+    print("Goal path: {}".format(goalPath))
     time.sleep(10)
-
-    print(goalPath)
-
-    nodeMap = nodeMatrix.getMatrix()
-
-    # Print map
-    # for y in range(len(nodeMap)):
-    #     for x in range(len(nodeMap[0])):
-    #         node = nodeMatrix.getNode(x,y)
-    #         if node.getWeight() == math.inf:
-    #             print("#", end="")
-    #         else:
-    #             print("O", end="")
-    #     print("")
