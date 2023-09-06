@@ -264,23 +264,9 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
         textRect.center = (x + grid_node_width / 2, y + grid_node_height / 2)
         gridDisplay.blit(text, textRect)
 
-    # Display Weights
-    # flattenedNodeMatrix = np.array(nodeMap)
-    # flattenedNodeMatrix = flattenedNodeMatrix.flatten()
-    # for node in flattenedNodeMatrix:
-    #     x = node.x*grid_node_width
-    #     y = node.y*grid_node_height
-    #     font = pygame.font.SysFont('timesnewroman',  8)
-    #     text = font.render(str(node.getWeight()), True, (0, 0, 0), None)
-    #     textRect = text.get_rect()
-    #     textRect.x = x + grid_node_width
-    #     textRect.y = y + grid_node_height
-    #     textRect.center = (x + grid_node_width / 2, y + grid_node_height / 2)
-    #     gridDisplay.blit(text, textRect)
-
     pygame.display.update()
 
-    time.sleep(5)
+    time.sleep(1)
 
     for node in reached:
         fpsClock.tick(fps)
@@ -301,26 +287,34 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
 
 
 if __name__ == "__main__":
+    sleepTime = 1
+
     map = Map_Obj(1)
     nodeMatrix = NodeMap(map)
     goalPath, reached = AStarSearch(NodeMap(map), map)
     drawMap(nodeMatrix, goalPath, reached, Map_Obj(1))
-    time.sleep(5)
+    time.sleep(sleepTime)
 
     map = Map_Obj(2)
     nodeMatrix = NodeMap(map)
     goalPath, reached = AStarSearch(NodeMap(map), map)
     drawMap(nodeMatrix, goalPath, reached, Map_Obj(2))
-    time.sleep(5)
+    time.sleep(sleepTime)
 
     map = Map_Obj(3)
     nodeMatrix = NodeMap(map)
     goalPath, reached = AStarSearch(NodeMap(map), map)
     drawMap(nodeMatrix, goalPath, reached, Map_Obj(3))
-    time.sleep(5)
+    time.sleep(sleepTime)
+
+    map = Map_Obj(4)
+    nodeMatrix = NodeMap(map)
+    goalPath, reached = AStarSearch(NodeMap(map), map)
+    drawMap(nodeMatrix, goalPath, reached, Map_Obj(4))
+    time.sleep(sleepTime)
 
     map = Map_Obj(5)
     nodeMatrix = NodeMap(map)
     goalPath, reached = AStarSearch(NodeMap(map), map)
     drawMap(nodeMatrix, goalPath, reached, Map_Obj(5))
-    time.sleep(3)
+    time.sleep(sleepTime)
