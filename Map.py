@@ -31,6 +31,7 @@ class Map_Obj():
     get_maps()
         Get integer and string maps
     """
+
     def __init__(self, task: int = 1) -> None:
         """Instantiate a map object for task number `task`.
 
