@@ -201,10 +201,11 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
     fps = 60
     fpsClock = pygame.time.Clock()
 
-    length = 20*len(nodeMatrix[0])
-    width = 20*len(nodeMatrix)
     grid_node_width = 20
     grid_node_height = 20
+    length = grid_node_height*len(nodeMatrix[0])
+    width = grid_node_width*len(nodeMatrix)
+
     gridDisplay = pygame.display.set_mode((length, width))
 
     # Settings End
@@ -234,14 +235,18 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
 
         # Draw Start
         createSquare(nmap.getStart().x*grid_node_width,
-                     nmap.getStart().y*grid_node_height, (0, 0, 100))
+                     nmap.getStart().y*grid_node_height, (255, 255, 0))
         # Draw Goal
         createSquare(nmap.getGoal().x*grid_node_width,
                      nmap.getGoal().y*grid_node_height, (0, 255, 0))
 
+        # Change color depending on when node was reached
+        blue = 255
+        decrement = 255 // len(reached)
         for node in walkedNodes:
             createSquare(node.x*grid_node_width, node.y *
-                         grid_node_height, (0, 0, 255))
+                         grid_node_height, (0, 0, blue))
+            blue = blue - decrement
 
     # First Draw of map
     refresh()
@@ -268,17 +273,49 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
 
     time.sleep(1)
 
+    def convertEuclidToRGB(euclidDistance):
+        # Max euclidian distance
+        OldMax = nmap.euclidianDistance(nmap.getNode(0, 0), nodeMatrix[-1][-1])
+        OldMin = 0
+        # Max RGB
+        NewMax = 255
+        NewMin = 0
+        OldRange = (OldMax - OldMin)
+        NewRange = (NewMax - NewMin)
+        NewValue = (((euclidDistance - OldMin) * NewRange) / OldRange) + NewMin
+        return NewValue
+
+    # Draw euclid distance to goal
+    for y in range(len(nodeMatrix)):
+        for x in range(len(nodeMatrix[0])):
+            node: Node = nmap.getNode(x, y)
+            # Walkable squares
+            if node.getWeight() != math.inf:
+                euclidDistance = nmap.euclidianDistance(node, nmap.getGoal())
+                rgb = convertEuclidToRGB(euclidDistance)
+                createSquare(x*grid_node_width, y *
+                             grid_node_height, (rgb, rgb, rgb))
+            # Walls
+            elif node.getWeight() == math.inf:
+                createSquare(x*grid_node_width, y *
+                             grid_node_height, (100, 0, 0))
+
+    pygame.display.update()
+
+    time.sleep(1)
+
+    # Draw reached/exploration
     for node in reached:
         fpsClock.tick(fps)
+        # Dont draw over start node
         if node != goalPath[-1]:
-            createSquare(node.x*grid_node_width, node.y *
-                         grid_node_height, (0, 0, 255))
             walkedNodes.append(node)
-        pygame.display.update()
         mapObj.tick()
         nmap = NodeMap(mapObj)
         refresh()
+        pygame.display.update()
 
+    # Draw path found to goal
     for node in goalPath:
         fpsClock.tick(fps)
         createSquare(node.x*grid_node_width, node.y *
