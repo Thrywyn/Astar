@@ -4,6 +4,15 @@ import pygame
 import numpy as np
 import math
 import time
+import spectra
+
+fps = 1000
+node_width = 5
+node_height = 5
+# List of map/task numbers to run, 1-6
+tasks_todo = [6]
+# Scalar default 1, using manhattan distance
+heuristicScalar = 1
 
 
 class Node:
@@ -180,7 +189,7 @@ def AStarSearch(nodeMap: NodeMap, mapObj: Map_Obj):
                             # update total cost and parent
                             n.setParent(chosenNode)
                             n.setEstimatedCost(
-                                n.getHeuristicCost() + n.calculatePathCost())
+                                n.getHeuristicCost() * heuristicScalar + n.calculatePathCost())
                         if n not in frontier:
                             frontier.append(n)
 
@@ -197,19 +206,19 @@ def AStarSearch(nodeMap: NodeMap, mapObj: Map_Obj):
             for x in range(nodeMap.width):
                 for y in range(nodeMap.height):
                     print(nodeMap.getNode(x, y))
-        print("Goal Path Cost: {}".format(goal.getPathCost()))
-        return (nodeMap.getPath(goal), reached)
+        # print("Goal Path Cost: {}".format(goal.getPathCost()))
+        return (nodeMap.getPath(goal), reached, goal.getPathCost())
 
 
 def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Map_Obj):
     nmap = NodeMap(mapObj)
     nodeMatrix = nmap.getMatrix()
     # Settings
-    fps = 60
+    updateFps = fps
     fpsClock = pygame.time.Clock()
 
-    grid_node_width = 5
-    grid_node_height = 5
+    grid_node_width = node_width
+    grid_node_height = node_height
     length = grid_node_height*len(nodeMatrix[0])
     width = grid_node_width*len(nodeMatrix)
 
@@ -250,26 +259,18 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
         createSquare(nmap.getGoal().x*grid_node_width,
                      nmap.getGoal().y*grid_node_height, (0, 255, 0))
 
-    def drawUpdates():
-        # Change color depending on when node was reached
-        incrementRGB = (255, 0, 255)
-        rDec = incrementRGB[0] // len(reached)
-        gDec = incrementRGB[1] // len(reached)
-        bDec = incrementRGB[2] // len(reached)
-        # Start Values
-        r = 0
-        g = 0
-        b = 255
+    scale = spectra.scale(["blue", "#ff4d4d"])
+    colorRange = scale.range(len(reached))
 
+    totalRange = colorRange
+
+    def drawUpdates():
         if len(walkedNodes) > 0:
             node = walkedNodes[-1]
             # Calculate color for index of current node
             reachedIndex = reached.index(node)
-            r = rDec*reachedIndex
-            g = gDec*reachedIndex
-            b = 255 - bDec*reachedIndex
             createSquare(node.x*grid_node_width, node.y *
-                         grid_node_height, (r, 0, b))
+                         grid_node_height, (totalRange[reachedIndex].hexcode))
 
     # First Draw of map
     drawInitialMap()
@@ -338,7 +339,7 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
     # Draw reached/exploration
     for node in reached:
         pygame.event.get()
-        fpsClock.tick(fps)
+        fpsClock.tick(updateFps)
         # Dont draw over start node
         if node != goalPath[-1]:
             walkedNodes.append(node)
@@ -350,63 +351,57 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
             redrawMovedGoal(prevGoal, nmap.getGoal())
         drawUpdates()
         pygame.display.update()
-        pygame.display.set_caption("FPS: {}".format(fpsClock.get_fps()))
+        pygame.display.set_caption("HeuristicScalar: {}, FPS: {}".format(
+            heuristicScalar, fpsClock.get_fps()))
 
     # Draw path found to goal
     for node in goalPath:
         pygame.event.get()
-        fpsClock.tick(fps)
+        fpsClock.tick(updateFps)
         createSquare(node.x*grid_node_width, node.y *
                      grid_node_height, (39, 165, 98))
         pygame.display.update()
 
 
+def calculateOptimalHeuristicScalarForTask(taskNumber: int):
+    global heuristicScalar
+    # Start scalar value
+    heuristicScalar = 1
+    currentOptimalScalar = heuristicScalar
+    currentBestPathCost = math.inf
+    currentBestReachedSize = math.inf
+    scalarIncrement = 0.1
+    for i in range(10):
+        map = Map_Obj(taskNumber)
+        nodeMatrix = NodeMap(map)
+        goalPath, reached, goalPathCost = AStarSearch(
+            NodeMap(map), map)
+        # drawMap(nodeMatrix, goalPath, reached, Map_Obj(taskNumber))
+        if goalPathCost == math.inf:
+            break
+        if goalPathCost < currentBestPathCost:
+            currentBestReachedSize = len(reached)
+            currentBestPathCost = goalPathCost
+            currentOptimalScalar = heuristicScalar
+        elif goalPathCost == currentBestPathCost and len(reached) < currentBestReachedSize:
+            currentBestReachedSize = len(reached)
+            currentBestPathCost = goalPathCost
+            currentOptimalScalar = heuristicScalar
+        print("HeuristicScalar: {}, GoalPathCost: {}, ReachedSize: {}".format(
+            heuristicScalar, goalPathCost, len(reached)))
+        heuristicScalar += scalarIncrement
+    return currentOptimalScalar, currentBestPathCost, currentBestReachedSize
+
+
 def main():
     sleepTime = 5
-
-    #! Simple paths
-
-    # map = Map_Obj(1)
-    # nodeMatrix = NodeMap(map)
-    # goalPath, reached = AStarSearch(NodeMap(map), map)
-    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(1))
-    # time.sleep(sleepTime)
-
-    # map = Map_Obj(2)
-    # nodeMatrix = NodeMap(map)
-    # goalPath, reached = AStarSearch(NodeMap(map), map)
-    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(2))
-    # time.sleep(sleepTime)
-
-    #! Weighted paths
-
-    # map = Map_Obj(3)
-    # nodeMatrix = NodeMap(map)
-    # goalPath, reached = AStarSearch(NodeMap(map), map)
-    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(3))
-    # time.sleep(sleepTime)
-
-    # map = Map_Obj(4)
-    # nodeMatrix = NodeMap(map)
-    # goalPath, reached = AStarSearch(NodeMap(map), map)
-    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(4))
-    # time.sleep(sleepTime)
-
-    #! Moving Goal
-
-    # map = Map_Obj(5)
-    # nodeMatrix = NodeMap(map)
-    # goalPath, reached = AStarSearch(NodeMap(map), map)
-    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(5))
-    # time.sleep(sleepTime)
-
-    #! The random map
-
-    map = Map_Obj(6)
-    nodeMatrix = NodeMap(map)
-    goalPath, reached = AStarSearch(NodeMap(map), map)
-    drawMap(nodeMatrix, goalPath, reached, Map_Obj(6))
-    time.sleep(sleepTime)
+    for task in tasks_todo:
+        map = Map_Obj(task)
+        nodeMatrix = NodeMap(map)
+        goalPath, reached, goalPathCost = AStarSearch(NodeMap(map), map)
+        drawMap(nodeMatrix, goalPath, reached, Map_Obj(task))
+        time.sleep(sleepTime)
+    # print(calculateOptimalHeuristicScalarForTask(6))
 
 
 if __name__ == "__main__":

@@ -2,11 +2,17 @@ import csv
 import random
 from mazelib import Maze
 from mazelib.generate.Prims import Prims
+from mazelib.generate.CellularAutomaton import CellularAutomaton
+from mazelib.generate.DungeonRooms import DungeonRooms
 import copy
 import numpy as np
 from mazelib.solve.BacktrackingSolver import BacktrackingSolver
+from mazelib.solve.Collision import Collision
 import matplotlib.pyplot as plt
 import matplotlib
+import subprocess
+import os
+import platform
 
 
 def main():
@@ -18,12 +24,20 @@ def main():
 
     mazeCopy = m.grid.copy()
 
+    # Convert to format that Map.py can use
     for y in range(len(mazeCopy)):
         for x in range(len(mazeCopy[0])):
             if mazeCopy[y][x] == 1:
                 mazeCopy[y][x] = -1
             elif mazeCopy[y][x] == 0:
                 mazeCopy[y][x] = 1
+
+    # Randomize maze walls to potentially create more paths
+    for y in range(len(mazeCopy)):
+        for x in range(len(mazeCopy[0])):
+            if mazeCopy[y][x] == -1:
+                mazeCopy[y][x] = random.choices(
+                    [1, -1], weights=[1, 10], k=1)[0]
 
     randfile = open("Random.csv", "w")
     writer = csv.writer(randfile, delimiter=",")
@@ -33,7 +47,7 @@ def main():
 
     randfile.close()
 
-    m.solver = BacktrackingSolver()
+    m.solver = Collision()
     m.solve()
 
     # Find shortest solution
@@ -57,6 +71,8 @@ def main():
     plt.xticks([]), plt.yticks([])
     # plt.show()
     plt.savefig("MazeSolution.png")
+    print("Saved figure to MazeSolution.png")
+    os.startfile("C:\Repos\Astar\MazeSolution.png")
 
 
 if __name__ == "__main__":
