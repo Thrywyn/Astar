@@ -115,8 +115,15 @@ class NodeMap:
         dist = np.linalg.norm(point1 - point2)
         return dist
 
+    def manhattanDistance(self, node1: Node, node2: Node):
+        point1 = np.array((node1.x, node1.y))
+        point2 = np.array((node2.x, node2.y))
+        manhattan_distance = np.sum(np.abs(point1-point2))
+        return manhattan_distance
+
     def heuristicCost(self, node: Node):
-        return self.euclidianDistance(node, self.goal)
+        # return self.euclidianDistance(node, self.goal)
+        return self.manhattanDistance(node, self.goal)
 
     def getPath(self, node: Node):
         path = []
@@ -180,8 +187,8 @@ def AStarSearch(nodeMap: NodeMap, mapObj: Map_Obj):
             frontier.remove(chosenNode)
             reached.append(chosenNode)
 
+            # Moving goal
             nodeMap.updateGoalPositionWithTick()
-
             prevGoal = goal
             goal = nodeMap.getGoal()
 
@@ -201,12 +208,15 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
     fps = 60
     fpsClock = pygame.time.Clock()
 
-    grid_node_width = 20
-    grid_node_height = 20
+    grid_node_width = 5
+    grid_node_height = 5
     length = grid_node_height*len(nodeMatrix[0])
     width = grid_node_width*len(nodeMatrix)
 
     gridDisplay = pygame.display.set_mode((length, width))
+
+    # Background color
+    gridDisplay.fill((255, 224, 181))
 
     # Settings End
 
@@ -216,7 +226,7 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
 
     walkedNodes: list[Node] = []
 
-    def refresh():
+    def drawInitialMap():
         # Draw Initial Map
         for y in range(len(nodeMatrix)):
             for x in range(len(nodeMatrix[0])):
@@ -224,7 +234,7 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
                 # Walls
                 if node.getWeight() == math.inf:
                     createSquare(x*grid_node_width, y *
-                                 grid_node_height, (100, 0, 0))
+                                 grid_node_height, (12, 12, 12))
                 # Walkable squares
                 elif node.getWeight() >= 0:
                     weight = node.getWeight()
@@ -240,38 +250,49 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
         createSquare(nmap.getGoal().x*grid_node_width,
                      nmap.getGoal().y*grid_node_height, (0, 255, 0))
 
+    def drawUpdates():
         # Change color depending on when node was reached
-        blue = 255
-        decrement = 255 // len(reached)
-        for node in walkedNodes:
+        incrementRGB = (255, 0, 255)
+        rDec = incrementRGB[0] // len(reached)
+        gDec = incrementRGB[1] // len(reached)
+        bDec = incrementRGB[2] // len(reached)
+        # Start Values
+        r = 0
+        g = 0
+        b = 255
+
+        if len(walkedNodes) > 0:
+            node = walkedNodes[-1]
+            # Calculate color for index of current node
+            reachedIndex = reached.index(node)
+            r = rDec*reachedIndex
+            g = gDec*reachedIndex
+            b = 255 - bDec*reachedIndex
             createSquare(node.x*grid_node_width, node.y *
-                         grid_node_height, (0, 0, blue))
-            blue = blue - decrement
+                         grid_node_height, (r, 0, b))
 
     # First Draw of map
-    refresh()
+    drawInitialMap()
     pygame.display.update()
 
-    # Display  weight only for reached nodes text on grid
-    pygame.font.init()
-    white = (255, 255, 255)
-    green = (0, 255, 0)
-    blue = (0, 0, 128)
+    # # Display  weight only for reached nodes text on grid
+    # pygame.font.init()
+    # white = (255, 255, 255)
+    # green = (0, 255, 0)
+    # blue = (0, 0, 128)
 
-    for node in reached:
-        x = node.x*grid_node_width
-        y = node.y*grid_node_height
-        font = pygame.font.SysFont('timesnewroman',  8)
-        text = font.render(str(node.getPathCost()), True, (0, 0, 0), None)
-        textRect = text.get_rect()
-        textRect.x = x + grid_node_width
-        textRect.y = y + grid_node_height
-        textRect.center = (x + grid_node_width / 2, y + grid_node_height / 2)
-        gridDisplay.blit(text, textRect)
-
-    pygame.display.update()
-
-    time.sleep(1)
+    # for node in reached:
+    #     x = node.x*grid_node_width
+    #     y = node.y*grid_node_height
+    #     font = pygame.font.SysFont('timesnewroman',  8)
+    #     text = font.render(str(node.getPathCost()), True, (0, 0, 0), None)
+    #     textRect = text.get_rect()
+    #     textRect.x = x + grid_node_width
+    #     textRect.y = y + grid_node_height
+    #     textRect.center = (x + grid_node_width / 2, y + grid_node_height / 2)
+    #     gridDisplay.blit(text, textRect)
+    # pygame.display.update()
+    # time.sleep(3)
 
     def convertEuclidToRGB(euclidDistance):
         # Max euclidian distance
@@ -285,73 +306,108 @@ def drawMap(nodeMapFromAStar: NodeMap, goalPath, reached: list[Node], mapObj: Ma
         NewValue = (((euclidDistance - OldMin) * NewRange) / OldRange) + NewMin
         return NewValue
 
-    # Draw euclid distance to goal
-    for y in range(len(nodeMatrix)):
-        for x in range(len(nodeMatrix[0])):
-            node: Node = nmap.getNode(x, y)
-            # Walkable squares
-            if node.getWeight() != math.inf:
-                euclidDistance = nmap.euclidianDistance(node, nmap.getGoal())
-                rgb = convertEuclidToRGB(euclidDistance)
-                createSquare(x*grid_node_width, y *
-                             grid_node_height, (rgb, rgb, rgb))
-            # Walls
-            elif node.getWeight() == math.inf:
-                createSquare(x*grid_node_width, y *
-                             grid_node_height, (100, 0, 0))
+    # # Draw euclid distance to goal
+    # for y in range(len(nodeMatrix)):
+    #     for x in range(len(nodeMatrix[0])):
+    #         node: Node = nmap.getNode(x, y)
+    #         # Walkable squares
+    #         if node.getWeight() != math.inf:
+    #             euclidDistance = nmap.euclidianDistance(node, nmap.getGoal())
+    #             rgb = convertEuclidToRGB(euclidDistance)
+    #             createSquare(x*grid_node_width, y *
+    #                          grid_node_height, (rgb, rgb, rgb))
+    #         # Walls
+    #         elif node.getWeight() == math.inf:
+    #             createSquare(x*grid_node_width, y *
+    #                          grid_node_height, (100, 0, 0))
+    # pygame.display.update()
+    # time.sleep(3)
 
-    pygame.display.update()
-
-    time.sleep(1)
+    def redrawMovedGoal(prevGoal: Node, newGoal: Node):
+        # Draw white over previous goal
+        weight = prevGoal.getWeight()
+        reduction = 50*weight
+        clr = 255 - reduction
+        createSquare(prevGoal.x*grid_node_width, prevGoal.y *
+                     grid_node_height, (clr, clr, clr))
+        # Draw new goal
+        createSquare(newGoal.x*grid_node_width, newGoal.y *
+                     grid_node_height, (0, 255, 0))
+        return None
 
     # Draw reached/exploration
     for node in reached:
+        pygame.event.get()
         fpsClock.tick(fps)
         # Dont draw over start node
         if node != goalPath[-1]:
             walkedNodes.append(node)
+        prevGoal = nmap.getGoal()
         mapObj.tick()
-        nmap = NodeMap(mapObj)
-        refresh()
+        nmap.goal = nmap.getNode(nmap.mapObj.get_goal_pos()[
+                                 1], nmap.mapObj.get_goal_pos()[0])
+        if prevGoal != nmap.getGoal():
+            redrawMovedGoal(prevGoal, nmap.getGoal())
+        drawUpdates()
         pygame.display.update()
+        pygame.display.set_caption("FPS: {}".format(fpsClock.get_fps()))
 
     # Draw path found to goal
     for node in goalPath:
+        pygame.event.get()
         fpsClock.tick(fps)
         createSquare(node.x*grid_node_width, node.y *
-                     grid_node_height, (0, 100, 0))
+                     grid_node_height, (39, 165, 98))
         pygame.display.update()
 
 
+def main():
+    sleepTime = 5
+
+    #! Simple paths
+
+    # map = Map_Obj(1)
+    # nodeMatrix = NodeMap(map)
+    # goalPath, reached = AStarSearch(NodeMap(map), map)
+    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(1))
+    # time.sleep(sleepTime)
+
+    # map = Map_Obj(2)
+    # nodeMatrix = NodeMap(map)
+    # goalPath, reached = AStarSearch(NodeMap(map), map)
+    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(2))
+    # time.sleep(sleepTime)
+
+    #! Weighted paths
+
+    # map = Map_Obj(3)
+    # nodeMatrix = NodeMap(map)
+    # goalPath, reached = AStarSearch(NodeMap(map), map)
+    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(3))
+    # time.sleep(sleepTime)
+
+    # map = Map_Obj(4)
+    # nodeMatrix = NodeMap(map)
+    # goalPath, reached = AStarSearch(NodeMap(map), map)
+    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(4))
+    # time.sleep(sleepTime)
+
+    #! Moving Goal
+
+    # map = Map_Obj(5)
+    # nodeMatrix = NodeMap(map)
+    # goalPath, reached = AStarSearch(NodeMap(map), map)
+    # drawMap(nodeMatrix, goalPath, reached, Map_Obj(5))
+    # time.sleep(sleepTime)
+
+    #! The random map
+
+    map = Map_Obj(6)
+    nodeMatrix = NodeMap(map)
+    goalPath, reached = AStarSearch(NodeMap(map), map)
+    drawMap(nodeMatrix, goalPath, reached, Map_Obj(6))
+    time.sleep(sleepTime)
+
+
 if __name__ == "__main__":
-    sleepTime = 1
-
-    map = Map_Obj(1)
-    nodeMatrix = NodeMap(map)
-    goalPath, reached = AStarSearch(NodeMap(map), map)
-    drawMap(nodeMatrix, goalPath, reached, Map_Obj(1))
-    time.sleep(sleepTime)
-
-    map = Map_Obj(2)
-    nodeMatrix = NodeMap(map)
-    goalPath, reached = AStarSearch(NodeMap(map), map)
-    drawMap(nodeMatrix, goalPath, reached, Map_Obj(2))
-    time.sleep(sleepTime)
-
-    map = Map_Obj(3)
-    nodeMatrix = NodeMap(map)
-    goalPath, reached = AStarSearch(NodeMap(map), map)
-    drawMap(nodeMatrix, goalPath, reached, Map_Obj(3))
-    time.sleep(sleepTime)
-
-    map = Map_Obj(4)
-    nodeMatrix = NodeMap(map)
-    goalPath, reached = AStarSearch(NodeMap(map), map)
-    drawMap(nodeMatrix, goalPath, reached, Map_Obj(4))
-    time.sleep(sleepTime)
-
-    map = Map_Obj(5)
-    nodeMatrix = NodeMap(map)
-    goalPath, reached = AStarSearch(NodeMap(map), map)
-    drawMap(nodeMatrix, goalPath, reached, Map_Obj(5))
-    time.sleep(sleepTime)
+    main()

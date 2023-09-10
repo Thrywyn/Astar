@@ -125,6 +125,11 @@ class Map_Obj():
             goal_pos = [6, 36]
             end_goal_pos = [6, 7]
             path_to_map = 'Samfundet_map_2.csv'
+        elif task == 6:
+            start_pos = [1, 1]
+            goal_pos = [199, 199]
+            end_goal_pos = goal_pos
+            path_to_map = 'Random.csv'
 
         return start_pos, goal_pos, end_goal_pos, path_to_map
 
